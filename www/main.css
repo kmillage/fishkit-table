@@ -1,0 +1,30 @@
+
+
+ /*DT selected row color*/
+ table.dataTable tr.selected td, table.dataTable td.selected {
+    background-color: #58C7B1 !important;
+  }
+  
+  /*DT scrollX*/
+  .dataTables_wrapper { 
+  	overflow-x: scroll; 
+  }
+  
+  /*Hyperlink color*/
+  a {
+  	color: blue ;
+  }
+   
+ /*boxPad class*/
+ .card-pane-right {
+  border-radius: 10px;
+}
+
+ /*Below Lc and above Lc colors*/
+.progress-bar-customBelow {
+	background-color: #dae3e0;
+}
+
+.progress-bar-customAbove {
+	background-color: #9AD0C5;
+}
