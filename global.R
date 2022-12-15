@@ -20,6 +20,9 @@ library(shinyalert)
 #App specific libraries
 #-------------------------
 
+library(tidyverse)
+library(DT)
+
 # The content for each tab is stored in a separate file. Source all .R files in the current directory that start with "ui_":  
 sapply(list.files(
   pattern = "^ui_.*\\.R$",
@@ -27,6 +30,8 @@ sapply(list.files(
   full.names = TRUE
 ),
 source)
+
+fake_data <- read_csv("www/fake_data.csv")
 
 #------------------------------------------
 # Setup theme (fresh library)
