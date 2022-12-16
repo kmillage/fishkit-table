@@ -29,6 +29,8 @@ interactiveTable <- function(){
         height = "500px",
         type = "tabs",
         collapsible = FALSE,
+        
+        # Example #1
         tabPanel(
           title = h6(strong("Example #1")),
           collapsible = FALSE, 
@@ -39,11 +41,90 @@ interactiveTable <- function(){
             color = "white",
             
             # Table
-            DT::dataTableOutput("exampleTable1"),
+            reactableOutput("exampleTable1"),
+            tags$br(),
             
             # Delete selected row button
             actionBttn(
               "deleteRow1",
+              strong("Delete Selected Row:"),
+              size = "sm",
+              block = TRUE,
+              color = "warning",
+              style = "gradient"
+            )
+          )
+        ),
+        
+        # Example #2
+        tabPanel(
+          title = h6(strong("Example #2")),
+          collapsible = FALSE, 
+          width = 12,
+          solidHeader = FALSE,
+          status = NULL,
+          boxPad(
+            color = "white",
+            
+            # Table
+            reactableOutput("exampleTable2"),
+            tags$br(),
+            
+            # Delete selected row button
+            actionBttn(
+              "deleteRow2",
+              strong("Delete Selected Row:"),
+              size = "sm",
+              block = TRUE,
+              color = "warning",
+              style = "gradient"
+            )
+          )
+        ),
+        
+        # Example #3
+        tabPanel(
+          title = h6(strong("Example #3")),
+          collapsible = FALSE, 
+          width = 12,
+          solidHeader = FALSE,
+          status = NULL,
+          boxPad(
+            color = "white",
+            
+            # Table
+            reactableOutput("exampleTable3"),
+            tags$br(),
+            
+            # Delete selected row button
+            actionBttn(
+              "deleteRow3",
+              strong("Delete Selected Row:"),
+              size = "sm",
+              block = TRUE,
+              color = "warning",
+              style = "gradient"
+            )
+          )
+        ),
+        
+        # Example #4
+        tabPanel(
+          title = h6(strong("Example #4")),
+          collapsible = FALSE, 
+          width = 12,
+          solidHeader = FALSE,
+          status = NULL,
+          boxPad(
+            color = "white",
+            
+            # Table
+            reactableOutput("exampleTable4"),
+            tags$br(),
+            
+            # Delete selected row button
+            actionBttn(
+              "deleteRow4",
               strong("Delete Selected Row:"),
               size = "sm",
               block = TRUE,

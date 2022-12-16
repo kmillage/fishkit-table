@@ -22,6 +22,10 @@ library(shinyalert)
 
 library(tidyverse)
 library(DT)
+library(reactable)
+#devtools::install_github("Bart6114/sparklines")
+library(htmlwidgets)
+library(sparklines)
 
 # The content for each tab is stored in a separate file. Source all .R files in the current directory that start with "ui_":  
 sapply(list.files(
