@@ -8,7 +8,7 @@ interactiveTable <- function(){
     # This would be the button that retains selected options in the current Size Limit Builder - for this demo, we're going to use the button to randomly draw an entry from a CSV with fake data. 
     fluidRow(
       column(
-        8,
+        6,
         div(
           style = "margin: 0px 20px 47px 20px;",
           actionBttn(
@@ -20,6 +20,9 @@ interactiveTable <- function(){
             style = "gradient"
           )
         )
+      ),
+      column(6,
+             "This button simulates adding data by randomly drawing from a file of possible outcomes"
       )
     ),
     # Interactive Table of retained size limits - Option #1
