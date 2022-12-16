@@ -44,14 +44,56 @@ interactiveTable <- function(){
             reactableOutput("exampleTable1"),
             tags$br(),
             
-            # Delete selected row button
-            actionBttn(
-              "deleteRow1",
-              strong("Delete Selected Row:"),
-              size = "sm",
-              block = TRUE,
-              color = "warning",
-              style = "gradient"
+            fluidRow(
+              column(3, offset = 7,
+                     # Notes to add to selected row
+                     textInput("Notes",
+                               label = NULL,
+                               value = "",
+                               placeholder = "Input notes here")
+              ),
+              column(2,
+                     # Ranking to add to selected row
+                     numericInput("Ranking",
+                                  label = NULL,
+                                  value = 1,
+                                  min = 0,
+                                  max = 5,
+                                  step = 1)
+              )
+            ),
+            fluidRow(
+              column(7, 
+                     # Delete selected row button
+                     actionBttn(
+                       "deleteRow",
+                       strong("Delete selected row:"),
+                       size = "sm",
+                       block = TRUE,
+                       color = "warning",
+                       style = "gradient"
+                     )
+              ),
+              column(3,
+                     actionBttn(
+                       "addNotes",
+                       strong("Add notes to selected row:"),
+                       size = "sm",
+                       block = TRUE,
+                       color = "warning",
+                       style = "gradient"
+                     )
+              ),
+              column(2,
+                     actionBttn(
+                       "addRanking",
+                       strong("Add rank to selected row:"),
+                       size = "sm",
+                       block = TRUE,
+                       color = "warning",
+                       style = "gradient"
+                     )
+              )
             )
           )
         ),
@@ -68,17 +110,7 @@ interactiveTable <- function(){
             
             # Table
             reactableOutput("exampleTable2"),
-            tags$br(),
-            
-            # Delete selected row button
-            actionBttn(
-              "deleteRow2",
-              strong("Delete Selected Row:"),
-              size = "sm",
-              block = TRUE,
-              color = "warning",
-              style = "gradient"
-            )
+            tags$br()
           )
         ),
         
@@ -94,17 +126,7 @@ interactiveTable <- function(){
             
             # Table
             reactableOutput("exampleTable3"),
-            tags$br(),
-            
-            # Delete selected row button
-            actionBttn(
-              "deleteRow3",
-              strong("Delete Selected Row:"),
-              size = "sm",
-              block = TRUE,
-              color = "warning",
-              style = "gradient"
-            )
+            tags$br()
           )
         ),
         
@@ -120,17 +142,25 @@ interactiveTable <- function(){
             
             # Table
             reactableOutput("exampleTable4"),
-            tags$br(),
+            tags$br()
             
-            # Delete selected row button
-            actionBttn(
-              "deleteRow4",
-              strong("Delete Selected Row:"),
-              size = "sm",
-              block = TRUE,
-              color = "warning",
-              style = "gradient"
-            )
+          )
+        ),
+        
+        # Example #5
+        tabPanel(
+          title = h6(strong("Example #5")),
+          collapsible = FALSE, 
+          width = 12,
+          solidHeader = FALSE,
+          status = NULL,
+          boxPad(
+            color = "white",
+            
+            # Table
+            reactableOutput("exampleTable5"),
+            tags$br()
+            
           )
         )
       )

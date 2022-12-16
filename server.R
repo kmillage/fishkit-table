@@ -43,71 +43,135 @@ donut_chart <- function(value, fill = s_color, background = grey_color) {
     donut_theme +
     scale_fill_manual(values = c(background, fill))+
     xlim(.5, 4) +
-    annotate(geom = 'text', x = 0.5, y = 0, label = paste0(value, "%"))
+    annotate(geom = 'text', x = 0.5, y = 0, label = paste0(value, "%"), color = fill)
   return(p)
 }
 
+# Star making function
+rating_stars <- function(rating, max_rating = 5) {
+  star_icon <- function(empty = FALSE) {
+    tagAppendAttributes(shiny::icon("star"),
+                        style = paste("color:", if (empty) grey_color else "orange"),
+                        "aria-hidden" = "true"
+    )
+  }
+  rounded_rating <- floor(rating + 0.5)  # always round up
+  stars <- lapply(seq_len(max_rating), function(i) {
+    if (i <= rounded_rating) star_icon() else star_icon(empty = TRUE)
+  })
+  label <- sprintf("%s out of %s stars", rating, max_rating)
+  div(title = label, role = "img", stars)
+}
+
+# Little colored badges
+status_badge <- function(value, color = "#aaa", background = "#fff", border_color = "#aaa", width = "80px", height = "25px") {
+  tags$div(style = paste0("display: inline-block; padding: 0.125rem 0.75rem; font-weight: 600; font-size: 0.75rem; border: 2px solid ", border_color, "; border-radius: 15px; color:", color, "; background:", background, "; width:", width, "; height: ", height, ";"),
+           paste0(value, "%"))
+}
 
 server <- function(input, output, session) {
   
   # Container storing retained user-defined options
-  retainedData <- reactiveValues(all_species = NULL)
+  retainedData <- reactiveValues(all = NULL)
   
   # Add a randomly drawn entry to the retained data object when the "Retain option:" button is pressed
   observeEvent(input$addRow, {
     
-    new_option <- fake_data[sample(nrow(fake_data %>% filter(species == "Example fish")), 1), ]
+      # Randomly draw a row from our fake dataset to simulate user selected options
+      new_option <- fake_data[sample(nrow(fake_data), 1), ]
+      
+      # Format retained options for display and make charts
+      dat_keep <- new_option %>%
+        mutate(Option = case_when(slot_limit == "Y" ~ paste0("slot ", min_size, " to ", max_size, " ", units, " | ", "F/M = ", fishing_pressure),
+                                  slot_limit == "N" ~ paste0(min_size, " ", units, " | ", "F/M = ", fishing_pressure))) %>%
+        dplyr::select(Option, species, sustainability_score, catch_score) %>%
+        mutate(Notes = NA,
+               Ranking = 0)
+      
+      # Update list of all user-defined options
+      retainedData$all <- isolate(retainedData$all) %>%
+        bind_rows(dat_keep)
     
-    # Format retained options for display and make charts
-    dat_keep <- new_option %>%
-      mutate(Option = case_when(slot_limit == "Y" ~ paste0("slot ", min_size, " to ", max_size, " ", units, " | ", "F/M = ", fishing_pressure),
-                                slot_limit == "N" ~ paste0(min_size, " ", units, " | ", "F/M = ", fishing_pressure))) %>%
-      dplyr::select(Option, species, sustainability_score, catch_score)
+  }, ignoreInit = T)
+  
+  # Delete selected row from retained options
+  observeEvent(input$deleteRow, {
+      
+      # Get selected row
+      selected_row <- getReactableState("exampleTable1", "selected")
+      
+      # Remove row from species data 
+      retainedData$all <- isolate(retainedData$all)[-selected_row,]
+
+  }, ignoreInit = T)
+  
+  # Add notes to the selected row
+  observeEvent(input$addNotes, {
     
-    # Add to retained data container
-    retainedData$all_species <- isolate(retainedData$all_species) %>%
-      bind_rows(dat_keep)
+    # Get selected row
+    selected_row <- getReactableState("exampleTable1", "selected")
     
-  })
+    # Add custom input notes
+    retainedData$all[selected_row, "Notes"] <- input$Notes
+    
+  }, ignoreInit = T)
+  
+  # Add ranking to the selected row
+  observeEvent(input$addRanking, {
+    
+    # Get selected row
+    selected_row <- getReactableState("exampleTable1", "selected")
+    
+    # Add custom input notes
+    retainedData$all[selected_row, "Ranking"] <- input$Ranking
+    
+  }, ignoreInit = T)
   
   ### Example table #1 ---------
   output$exampleTable1 <- renderReactable({
     
-    req(!is.null(retainedData$all_species))
+    req(!is.null(retainedData$all))
     
-    # Get retained options for selected species
-    species_data <- retainedData$all_species %>%
-      dplyr::filter(species == "Example fish") %>%
-      dplyr::select(-species) %>%
-      #distinct(Option, sustainability_score, catch_score) %>%
+    # Make donut charts
+    plot_data <- retainedData$all %>%
       mutate(s_plot = map(sustainability_score, donut_chart),
              c_plot = map(catch_score, donut_chart, fill = c_color))
     
     # Create dummy df with placeholders for the table
-    table_data <- species_data %>%
-      dplyr::select(Option) %>%
+    table_data <- plot_data %>%
+      dplyr::select(Option, Notes, Ranking) %>%
       mutate(s_plot = NA,
-             c_plot = NA,
-             Notes = NA)
+             c_plot = NA) %>%
+      relocate(Notes, .after = last_col()) %>%
+      relocate(Ranking, .after = last_col())
     
     req(nrow(table_data) > 0)
     
     # Make table
     reactable(
       table_data,
+      
       # Options
-      selection = "single", onClick = "select", highlight = TRUE, compact = T, style = list(color = "#000000"),
+      selection = "single", onClick = "select", highlight = F, compact = T, style = list(color = "#000000"),
+      pagination = T, showPageSizeOptions = TRUE, paginationType = "simple", # pagination
+      sortable = FALSE, # So not all columns are sortable
+      showSortable = TRUE, # Allow some columns to be sortable
+      
       # Cell contents
       columns = list(
         s_plot = colDef(name = "Sustainability Score", align = "center", cell = function(value, index) {
-          p <- htmltools::plotTag(species_data$s_plot[[index]], alt="plots", width = 70, height = 70)
+          p <- htmltools::plotTag(plot_data$s_plot[[index]], alt="plots", width = 70, height = 70)
           return(p)
         }),
         c_plot = colDef(name = "Catch Score", align = "center", cell = function(value, index) {
-          p <- htmltools::plotTag(species_data$c_plot[[index]], alt="plots", width = 70, height = 70)
+          p <- htmltools::plotTag(plot_data$c_plot[[index]], alt="plots", width = 70, height = 70)
           return(p)
-        })
-      )
+        }),
+        Ranking = colDef(sortable = T, align = "center", cell = function(value) rating_stars(value))
+      ),
+      
+      # Vertically center align cell contents
+      defaultColDef = colDef(vAlign = "center", headerVAlign = "center")
     )
     
   })
@@ -115,20 +179,21 @@ server <- function(input, output, session) {
   ### Example table #2 ---------
   output$exampleTable2 <- renderReactable({
     
-    req(!is.null(retainedData$all_species))
+    req(!is.null(retainedData$all))
     
     # Get retained options for selected species
-    species_data <- retainedData$all_species %>%
-      dplyr::filter(species == "Example fish") %>%
-      dplyr::select(-species)
+    table_data <- retainedData$all
     
-    req(nrow(species_data) > 0)
+    req(nrow(table_data) > 0)
 
     # Make table 
     reactable(
-      species_data,
+      table_data %>% dplyr::select(-species),
+      
       # Options
-      selection = "single", onClick = "select", highlight = TRUE, showSortable = TRUE, pagination = T, showPageSizeOptions = TRUE, paginationType = "simple", style = list(color = "#000000"),
+      selection = "multiple", onClick = "select", highlight = T, style = list(color = "#000000"),
+      pagination = T, showPageSizeOptions = TRUE, paginationType = "simple", 
+      
       # Define custom cell contents by column
       columns = list(
         sustainability_score = colDef(name = "Sustainability Score", align = "left", cell = function(value) {
@@ -139,7 +204,10 @@ server <- function(input, output, session) {
           width <- paste0(value, "%")
           bar_chart(value, width = width, fill = c_color)
         })
-      )
+      ),
+      
+      # Vertically center align cell contents
+      defaultColDef = colDef(vAlign = "center", headerVAlign = "center")
     )
     
   })
@@ -147,14 +215,12 @@ server <- function(input, output, session) {
   ### Example table #3 ---------
   output$exampleTable3 <- renderReactable({
 
-    req(!is.null(retainedData$all_species))
-
+    req(!is.null(retainedData$all))
+    
     # Get retained options for selected species
-    species_data <- retainedData$all_species %>%
-      dplyr::filter(species == "Example fish") %>%
-      dplyr::select(-species)
-
-    req(nrow(species_data) > 0)
+    table_data <- retainedData$all
+    
+    req(nrow(table_data) > 0)
     
     # Color scales
     s_pal <- function(x) rgb(colorRamp(c("#ffffff", s_color))(x), maxColorValue = 255)
@@ -162,9 +228,12 @@ server <- function(input, output, session) {
 
     # Make table
     reactable(
-      species_data,
+      table_data %>% dplyr::select(-species),
+      
       # Options
-      selection = "single", onClick = "select", highlight = TRUE, compact = T, style = list(color = "#000000"),
+      selection = "multiple", onClick = "select", highlight = T, style = list(color = "#000000"),
+      pagination = T, showPageSizeOptions = TRUE, paginationType = "simple", 
+      
       # Define custom cell contents by column
       columns = list(
         sustainability_score = colDef(name = "Sustainability Score", align = "center", style = function(value) {
@@ -177,7 +246,10 @@ server <- function(input, output, session) {
           color <- c_pal(normalized)
           list(background = color)
         })
-      )
+      ),
+      
+      # Vertically center align cell contents
+      defaultColDef = colDef(vAlign = "center", headerVAlign = "center")
     )
 
   })
@@ -185,51 +257,79 @@ server <- function(input, output, session) {
   ### Example table #4 ---------
   output$exampleTable4 <- renderReactable({
     
-    req(!is.null(retainedData$all_species))
+    req(!is.null(retainedData$all))
     
     # Get retained options for selected species
-    species_data <- retainedData$all_species %>%
-      dplyr::filter(species == "Example fish") %>%
-      dplyr::select(-species) %>%
-      group_by(Option) %>%
-      summarize(sustainability_score = list(c(unique(sustainability_score), 100-unique(sustainability_score))),
-                catch_score = list(c(unique(catch_score), 100-unique(catch_score))))
+    table_data <- retainedData$all
     
-    req(nrow(species_data) > 0)
+    req(nrow(table_data) > 0)
+    
+    # Color scales
+    s_pal <- function(x) rgb(colorRamp(c("#ffffff", s_color))(x), maxColorValue = 255)
+    c_pal <- function(x) rgb(colorRamp(c("#ffffff", c_color))(x), maxColorValue = 255)
     
     # Make table
     reactable(
-      species_data,
+      table_data %>% dplyr::select(-species),
+      
       # Options
-      style = list(color = "#000000"),
+      selection = "multiple", onClick = "select", highlight = T, style = list(color = "#000000"),
+      pagination = T, showPageSizeOptions = TRUE, paginationType = "simple", 
+      
       # Define custom cell contents by column
       columns = list(
         sustainability_score = colDef(name = "Sustainability Score", align = "center", cell = function(value) {
-          sparkline(value, chart_type = "pie", height = 50)
+          b <- status_badge(value, color = s_color, background = s_pal(value/100), border_color = s_color)
+          tagList(b)
         }),
         catch_score = colDef(name = "Catch Score", align = "center", cell = function(value) {
+          b <- status_badge(value, color = "#fff", background = c_pal(value/100), border_color = c_color)
+          tagList(b)
+        })
+      ),
+      
+      # Vertically center align cell contents
+      defaultColDef = colDef(vAlign = "center", headerVAlign = "center")
+    )
+    
+  })
+  
+  ### Example table #5 ---------
+  output$exampleTable5 <- renderReactable({
+    
+    req(!is.null(retainedData$all))
+    
+    # Get retained options for selected species
+    table_data <- retainedData$all %>%
+      mutate(sustainability_score = map(sustainability_score, function(x){c(x, 100-x)}),
+             catch_score = map(catch_score, function(x){c(x, 100-x)})) %>%
+      relocate(Notes, .after = last_col()) %>%
+      relocate(Ranking, .after = last_col())
+    
+    req(nrow(table_data) > 0)
+    
+    # Make table
+    reactable(
+      table_data %>% dplyr::select(-species),
+      
+      # Options
+      selection = "multiple", onClick = "select", highlight = T, style = list(color = "#000000"),
+      pagination = T, showPageSizeOptions = TRUE, paginationType = "simple", 
+      
+      # Define custom cell contents by column
+      columns = list(
+        sustainability_score = colDef(name = "Sustainability Score", align = "center", cell = function(value, index) {
+          sparkline(value, chart_type = "pie", height = 50)
+        }),
+        catch_score = colDef(name = "Catch Score", align = "center", cell = function(value, index) {
           sparkline(value, chart_type = "pie", height = 50)
         })
-      )
+      ),
+      
+      # Vertically center align cell contents
+      defaultColDef = colDef(vAlign = "center", headerVAlign = "center")
     )
     
   })
 
-    # Table
-    # 
-    # datatable(data = display_data, 
-    #           options = list(paging = TRUE,    ## paginate the output
-    #                          pageLength = 10,  ## number of rows to output for each page
-    #                          #scrollX = TRUE,   ## enable scrolling on X axis
-    #                          scrollY = TRUE,   ## enable scrolling on Y axis
-    #                          autoWidth = TRUE, ## use smart column width handling
-    #                          server = FALSE,   ## use client-side processing
-    #                          dom = "ftip",
-    #                          columnDefs = list(list(targets = '_all', className = 'dt-center'))
-    #           ),
-    #           #extensions = 'Buttons',
-    #           selection = 'single', ## enable selection of a single row
-    #           #filter = 'bottom', ## include column filters at the bottom
-    #           rownames = FALSE ## don't show row numbers/names
-    # ) # end of datatables
 }
