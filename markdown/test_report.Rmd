@@ -1,0 +1,152 @@
+---
+title: "Test report"
+date: "`r format(Sys.time(), '%d %B, %Y')` \n"
+output:
+  pdf_document:
+    toc: no
+geometry: left=3cm,right=3cm,top=2cm,bottom=2cm
+always_allow_html: yes
+params:
+  dat: retained_options.Rdata
+---
+
+```{r, echo=FALSE, message=F, warning=F}
+library(reactable)
+library(reactR)
+library(htmltools)
+library(htmlwidgets)
+library(webshot)
+library(tidyverse)
+library(shiny)
+
+# Load the retained options file that was saved to the temp directory
+load(params$dat)
+
+runReport <- (NROW(retained_options) > 0)
+```
+
+
+```{r, echo=FALSE}
+if(runReport){
+  # Plotting helpers
+  # Colors
+  s_color <- "#005387"
+  c_color <- "#0096D6"
+  grey_color <- "#EEEEEE"
+  
+# Render a donut chart with a label in the middle
+donut_theme <- theme_void()+
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_rect(color = NA, fill = NA),
+    panel.grid=element_blank(),
+    axis.ticks = element_blank(),
+    plot.title=element_blank(),
+    axis.text = element_blank(),
+    legend.position = "none"
+  )
+
+donut_chart <- function(value, fill = s_color, background = grey_color) {
+  
+  d <- tibble(category = c("value", "extra"),
+              values = c(value, 100 - value)) %>%
+    mutate(ymax = cumsum(values),
+           ymin = c(0, head(ymax, n=-1)))
+  
+  p <- ggplot(d)+
+    aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=category) +
+    geom_rect() +
+    coord_polar(theta="y") + # Try to remove that to understand how the chart is built initially
+    donut_theme +
+    scale_fill_manual(values = c(background, fill))+
+    xlim(.5, 4) +
+    annotate(geom = 'text', x = 0.5, y = 0, label = paste0(value, "%"), color = fill)
+  return(p)
+}
+
+  # Star making function
+  rating_stars <- function(rating, max_rating = 5) {
+    star_icon <- function(empty = FALSE) {
+      tagAppendAttributes(
+        shiny::icon("star"),
+        style = paste("color:", if (empty)
+          grey_color
+          else
+            "orange"),
+        "aria-hidden" = "true"
+      )
+    }
+    rounded_rating <- floor(rating + 0.5)  # always round up
+    stars <- lapply(seq_len(max_rating), function(i) {
+      if (i <= rounded_rating)
+        star_icon()
+      else
+        star_icon(empty = TRUE)
+    })
+    label <- sprintf("%s out of %s stars", rating, max_rating)
+    div(title = label, role = "img", stars)
+  }
+  
+}
+```
+
+# Bag proposals summary
+
+`r ifelse(!runReport, print("None"), print(""))`
+
+```{r, echo=F}
+if(runReport){
+  
+  # Make plots
+    plot_data <- retained_options %>%
+      mutate(s_plot = map(sustainability_score, donut_chart),
+             c_plot = map(catch_score, donut_chart, fill = c_color))
+    
+  # Create dummy df with placeholders for the table
+    table_data <- plot_data %>%
+      dplyr::select(Option, Notes, Ranking) %>%
+      mutate(s_plot = NA,
+             c_plot = NA) %>%
+      relocate(Notes, .after = last_col()) %>%
+      relocate(Ranking, .after = last_col())
+}
+```
+
+
+```{r plot, echo=FALSE, results='asis'}
+#if(runReport){
+
+ # Make table
+htmltools::tagList(
+  reactable::reactable(
+      table_data,
+
+      # Options
+      selection = NULL, highlight = F, compact = T, style = list(color = "#000000"),
+      fullWidth = F, # This is necessary for the static printing, otherwise it cuts the table
+      width = 1000, # If you make this larger, it makes the table text and everything smaller
+      pagination = F,
+      sortable = FALSE, # So not all columns are sortable
+      showSortable = FALSE, # Allow some columns to be sortable
+
+      # Cell contents
+      columns = list(
+        s_plot = colDef(name = "Sustainability Score", align = "center", cell = function(value, index) {
+          p <- htmltools::plotTag(plot_data$s_plot[[index]], alt="plots", width = 90, height = 90)
+          return(p)
+        }),
+        c_plot = colDef(name = "Catch Score", align = "center", cell = function(value, index) {
+          p <- htmltools::plotTag(plot_data$c_plot[[index]], alt="plots", width = 90, height = 90)
+          return(p)
+        }),
+        Ranking = colDef(align = "center", cell = function(value) rating_stars(value))
+      ),
+
+      # Vertically center align cell contents
+      defaultColDef = colDef(vAlign = "center", headerVAlign = "center")
+    )
+)
+#}
+```

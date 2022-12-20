@@ -145,6 +145,8 @@ server <- function(input, output, session) {
       relocate(Notes, .after = last_col()) %>%
       relocate(Ranking, .after = last_col())
     
+    #save(plot_data, table_data, file = "test_data.RData")
+
     req(nrow(table_data) > 0)
     
     # Make table
@@ -331,5 +333,40 @@ server <- function(input, output, session) {
     )
     
   })
+  
+  #-------------------
+  #Test report
+  #-------------------
+  
+  ### NOTE - THIS ISN'T WORKING BECAUSE OF SOMETHING THAT'S HAPPENING WHEN THE PARAMS GET PASSED TO THE .Rmd file... I think it might only be able to handle a single data frame being passed over? 
+  
+  #Download report
+  output$testReport <- downloadHandler(
+
+    filename = "test_report.pdf",
+    content = function(file) {
+      # Copy the report file to a temporary directory before processing it, in
+      # case we don't have write permissions to the current working dir (which
+      # can happen when deployed).
+      tempReport <- file.path(tempdir(), "test_report.Rmd")
+      file.copy("markdown/test_report.Rmd", tempReport, overwrite = TRUE)
+      
+      retained_options <- retainedData$all
+      tempFile <- file.path(tempdir(), "retained_options.Rdata")
+      save(retained_options, file = tempFile)
+      
+      # Knit the document, passing in the `params` list, and eval it in a
+      # child of the global environment (this isolates the code in the document
+      # from the code in this app).
+      
+      rmarkdown::render(tempReport, 
+                        output_file = file,
+                        params = list(
+                          dat = tempFile
+                        ),
+                        envir = new.env(parent = globalenv())
+      )
+    }
+  )
 
 }
