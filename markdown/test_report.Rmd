@@ -19,8 +19,12 @@ library(webshot)
 library(tidyverse)
 library(shiny)
 
-# Load the retained options file that was saved to the temp directory
-load(params$dat)
+# Load test data
+load("test_data.Rdata")
+retained_options <- table_data
+
+# # Load the retained options file that was saved to the temp directory - this is from my attempts to link it to the demo app.
+# load(params$dat)
 
 runReport <- (NROW(retained_options) > 0)
 ```

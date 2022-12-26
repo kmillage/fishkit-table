@@ -23,10 +23,10 @@ interactiveTable <- function(){
       ),
       column(5,
              "This button simulates adding data by randomly drawing from a file of possible outcomes"
-      ),
-      column(2, offset = 1,
-             downloadButton("testReport", label = "Download Report", width = "100%")
       )
+      # column(2, offset = 1,
+      #        downloadButton("testReport", label = "Download Report", width = "100%")
+      # )
     ),
     # Interactive Table of retained size limits - Option #1
     fluidRow(

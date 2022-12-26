@@ -6,13 +6,39 @@ s_color <- "#005387"
 c_color <- "#0096D6"
 grey_color <- "#EEEEEE"
 
-# Render a bar chart with a label on the left
+# Render a bar chart with a label on the left - this is the simple version used in Example Table 2
 bar_chart <- function(label, width = "100%", height = "1rem", fill = s_color, background = grey_color) {
   bar <- div(style = list(background = fill, width = width, height = height))
   chart <- div(style = list(flexGrow = 1, marginLeft = "0.5rem", background = background), bar)
   div(style = list(display = "flex", alignItems = "center", color = fill), 
       paste0(label, "%"), # text 
       chart) # chart
+}
+
+# Render a bar chart showing the size range (as a function of the species' Lmax) that can be harvested 
+size_range_chart <- function(label, height = "1rem", fill = s_color, background = grey_color, slot_limit = "N", min_size = 50, max_size = 100, Lmin = 0, Lmax = 100) {
+  
+  if(slot_limit == "N"){
+    
+    percent_out <- ((min_size)/(Lmax-Lmin))*100
+    out_bar <- div(style = list(background = background, width = paste0(round(percent_out, 2), "%"), height = height))
+    bar <- div(style = list(flexGrow = 1, marginLeft = "0.5rem", background = fill), out_bar)
+    tagList(tags$p(label),
+            bar)
+
+  }else if(slot_limit == "Y"){
+    
+    percent_low <- ((min_size)/(Lmax-Lmin))*100
+    percent_high <- ((Lmax-max_size)/(Lmax-Lmin))*100
+    percent_in <- 100-(percent_low+percent_high)
+    out_bar_low <- div(style = list(background = background, width = paste0(round(percent_low, 2), "%"), height = height, float = "left"))
+    in_bar <- div(style = list(background = fill, width = paste0(round(percent_in, 2), "%"), height = height, float = "left"))
+    out_bar_high <- div(style = list(background = background, width = paste0(round(percent_high, 2), "%"), height = height, float = "left"))
+    bar <- div(style = list(flexGrow = 1, marginLeft = "0.5rem", background = fill), out_bar_low, in_bar, out_bar_high)
+    tagList(tags$p(label),
+            bar)
+
+  }
 }
 
 # Render a donut chart with a label in the middle
@@ -72,6 +98,7 @@ status_badge <- function(value, color = "#aaa", background = "#fff", border_colo
 server <- function(input, output, session) {
   
   # Container storing retained user-defined options
+  # Note: Bill - You can probably streamline this process. I wanted to create a object from which all of the different example tables could draw and thus I did some formatting up front. You might be best doing any necessary formatting within the reactive call to the table since you'll only beed one
   retainedData <- reactiveValues(all = NULL)
   
   # Add a randomly drawn entry to the retained data object when the "Retain option:" button is pressed
@@ -84,7 +111,7 @@ server <- function(input, output, session) {
       dat_keep <- new_option %>%
         mutate(Option = case_when(slot_limit == "Y" ~ paste0("slot ", min_size, " to ", max_size, " ", units, " | ", "F/M = ", fishing_pressure),
                                   slot_limit == "N" ~ paste0(min_size, " ", units, " | ", "F/M = ", fishing_pressure))) %>%
-        dplyr::select(Option, species, sustainability_score, catch_score) %>%
+        dplyr::select(Option, slot_limit, min_size, max_size, species, sustainability_score, catch_score) %>%
         mutate(Notes = NA,
                Ranking = 0)
       
@@ -161,6 +188,12 @@ server <- function(input, output, session) {
       
       # Cell contents
       columns = list(
+        Option = colDef(align = "center", cell = function(value, index) {
+          size_range_chart(label = value, 
+                           slot_limit = plot_data$slot_limit[[index]], 
+                           min_size = plot_data$min_size[[index]], 
+                           max_size = plot_data$max_size[[index]])
+        }),
         s_plot = colDef(name = "Sustainability Score", align = "center", cell = function(value, index) {
           p <- htmltools::plotTag(plot_data$s_plot[[index]], alt="plots", width = 70, height = 70)
           return(p)
@@ -184,13 +217,14 @@ server <- function(input, output, session) {
     req(!is.null(retainedData$all))
     
     # Get retained options for selected species
-    table_data <- retainedData$all
+    table_data <- retainedData$all %>%
+      dplyr::select(-slot_limit, -min_size, -max_size, -species)
     
     req(nrow(table_data) > 0)
 
     # Make table 
     reactable(
-      table_data %>% dplyr::select(-species),
+      table_data,
       
       # Options
       selection = "multiple", onClick = "select", highlight = T, style = list(color = "#000000"),
@@ -220,7 +254,9 @@ server <- function(input, output, session) {
     req(!is.null(retainedData$all))
     
     # Get retained options for selected species
-    table_data <- retainedData$all
+    table_data <- retainedData$all %>%
+      dplyr::select(-slot_limit, -min_size, -max_size, -species)
+      
     
     req(nrow(table_data) > 0)
     
@@ -230,7 +266,7 @@ server <- function(input, output, session) {
 
     # Make table
     reactable(
-      table_data %>% dplyr::select(-species),
+      table_data,
       
       # Options
       selection = "multiple", onClick = "select", highlight = T, style = list(color = "#000000"),
@@ -262,7 +298,8 @@ server <- function(input, output, session) {
     req(!is.null(retainedData$all))
     
     # Get retained options for selected species
-    table_data <- retainedData$all
+    table_data <- retainedData$all %>%
+      dplyr::select(-slot_limit, -min_size, -max_size, -species)
     
     req(nrow(table_data) > 0)
     
@@ -272,7 +309,7 @@ server <- function(input, output, session) {
     
     # Make table
     reactable(
-      table_data %>% dplyr::select(-species),
+      table_data,
       
       # Options
       selection = "multiple", onClick = "select", highlight = T, style = list(color = "#000000"),
@@ -303,6 +340,7 @@ server <- function(input, output, session) {
     
     # Get retained options for selected species
     table_data <- retainedData$all %>%
+      dplyr::select(-slot_limit, -min_size, -max_size, -species) %>%
       mutate(sustainability_score = map(sustainability_score, function(x){c(x, 100-x)}),
              catch_score = map(catch_score, function(x){c(x, 100-x)})) %>%
       relocate(Notes, .after = last_col()) %>%
@@ -312,7 +350,7 @@ server <- function(input, output, session) {
     
     # Make table
     reactable(
-      table_data %>% dplyr::select(-species),
+      table_data,
       
       # Options
       selection = "multiple", onClick = "select", highlight = T, style = list(color = "#000000"),
@@ -338,35 +376,35 @@ server <- function(input, output, session) {
   #Test report
   #-------------------
   
-  ### NOTE - THIS ISN'T WORKING BECAUSE OF SOMETHING THAT'S HAPPENING WHEN THE PARAMS GET PASSED TO THE .Rmd file... I think it might only be able to handle a single data frame being passed over? 
-  
-  #Download report
-  output$testReport <- downloadHandler(
-
-    filename = "test_report.pdf",
-    content = function(file) {
-      # Copy the report file to a temporary directory before processing it, in
-      # case we don't have write permissions to the current working dir (which
-      # can happen when deployed).
-      tempReport <- file.path(tempdir(), "test_report.Rmd")
-      file.copy("markdown/test_report.Rmd", tempReport, overwrite = TRUE)
-      
-      retained_options <- retainedData$all
-      tempFile <- file.path(tempdir(), "retained_options.Rdata")
-      save(retained_options, file = tempFile)
-      
-      # Knit the document, passing in the `params` list, and eval it in a
-      # child of the global environment (this isolates the code in the document
-      # from the code in this app).
-      
-      rmarkdown::render(tempReport, 
-                        output_file = file,
-                        params = list(
-                          dat = tempFile
-                        ),
-                        envir = new.env(parent = globalenv())
-      )
-    }
-  )
+  # ### NOTE - This isn't currently working - The table isn't visable for some reason when doing rmarkdown::render(), but it works if you manually knit the file. 
+  # 
+  # #Download report
+  # output$testReport <- downloadHandler(
+  # 
+  #   filename = "test_report.pdf",
+  #   content = function(file) {
+  #     # Copy the report file to a temporary directory before processing it, in
+  #     # case we don't have write permissions to the current working dir (which
+  #     # can happen when deployed).
+  #     tempReport <- file.path(tempdir(), "test_report.Rmd")
+  #     file.copy("markdown/test_report.Rmd", tempReport, overwrite = TRUE)
+  #     
+  #     retained_options <- retainedData$all
+  #     tempFile <- file.path(tempdir(), "retained_options.Rdata")
+  #     save(retained_options, file = tempFile)
+  #     
+  #     # Knit the document, passing in the `params` list, and eval it in a
+  #     # child of the global environment (this isolates the code in the document
+  #     # from the code in this app).
+  #     
+  #     rmarkdown::render(tempReport, 
+  #                       output_file = file,
+  #                       params = list(
+  #                         dat = tempFile
+  #                       ),
+  #                       envir = new.env(parent = globalenv())
+  #     )
+  #   }
+  # )
 
 }
