@@ -5,6 +5,7 @@
 s_color <- "#005387"
 c_color <- "#0096D6"
 grey_color <- "#EEEEEE"
+orange_color <- "#E88727"
 
 # Render a bar chart with a label on the left - this is the simple version used in Example Table 2
 bar_chart <- function(label, width = "100%", height = "1rem", fill = s_color, background = grey_color) {
@@ -16,7 +17,7 @@ bar_chart <- function(label, width = "100%", height = "1rem", fill = s_color, ba
 }
 
 # Render a bar chart showing the size range (as a function of the species' Lmax) that can be harvested 
-size_range_chart <- function(label, height = "1rem", fill = s_color, background = grey_color, slot_limit = "N", min_size = 50, max_size = 100, Lmin = 0, Lmax = 100) {
+size_range_chart <- function(label, height = "0.5rem", fill = orange_color, background = grey_color, slot_limit = "N", min_size = 50, max_size = 100, Lmin = 0, Lmax = 100) {
   
   if(slot_limit == "N"){
     
@@ -47,7 +48,8 @@ donut_theme <- theme_void()+
     axis.title.x = element_blank(),
     axis.title.y = element_blank(),
     panel.border = element_blank(),
-    panel.background = element_rect(color = NA, fill = NA),
+    panel.background = element_rect(color = NA_character_, fill = "transparent"),
+    plot.background = element_rect(color = NA_character_, fill = "transparent"),
     panel.grid=element_blank(),
     axis.ticks = element_blank(),
     plot.title=element_blank(),
@@ -98,7 +100,7 @@ status_badge <- function(value, color = "#aaa", background = "#fff", border_colo
 server <- function(input, output, session) {
   
   # Container storing retained user-defined options
-  # Note: Bill - You can probably streamline this process. I wanted to create a object from which all of the different example tables could draw and thus I did some formatting up front. You might be best doing any necessary formatting within the reactive call to the table since you'll only beed one
+  # Note: Bill - You can probably streamline this process. I wanted to create a object from which all of the different example tables could draw and thus I did some formatting up front. You might be best doing any necessary formatting within the reactive call to the table since you'll only need to do it once
   retainedData <- reactiveValues(all = NULL)
   
   # Add a randomly drawn entry to the retained data object when the "Retain option:" button is pressed
@@ -125,10 +127,14 @@ server <- function(input, output, session) {
   observeEvent(input$deleteRow, {
       
       # Get selected row
-      selected_row <- getReactableState("exampleTable1", "selected")
+      selected_row <- as.numeric(input$table_click) + 1 #Row ids start from 0
+      req(selected_row)
       
       # Remove row from species data 
       retainedData$all <- isolate(retainedData$all)[-selected_row,]
+      
+      # Close modal
+      toggleModal(session, "inputModal", toggle = "close")
 
   }, ignoreInit = T)
   
@@ -136,7 +142,8 @@ server <- function(input, output, session) {
   observeEvent(input$addNotes, {
     
     # Get selected row
-    selected_row <- getReactableState("exampleTable1", "selected")
+    selected_row <- as.numeric(input$table_click) + 1 #Row ids start from 0
+    req(selected_row)
     
     # Add custom input notes
     retainedData$all[selected_row, "Notes"] <- input$Notes
@@ -146,13 +153,31 @@ server <- function(input, output, session) {
   # Add ranking to the selected row
   observeEvent(input$addRanking, {
     
-    # Get selected row
-    selected_row <- getReactableState("exampleTable1", "selected")
+    # Define selected row
+    selected_row <- as.numeric(input$table_click) + 1 #Row ids start from 0
+    req(selected_row)
     
-    # Add custom input notes
-    retainedData$all[selected_row, "Ranking"] <- input$Ranking
+    # Add ranking
+    retainedData$all[selected_row, "Ranking"] <- as.numeric(input$Ranking)
     
   }, ignoreInit = T)
+  
+  # Toggle modal
+  observeEvent(input$table_click, {
+
+    toggleModal(session, "inputModal", toggle = "open")
+
+  })
+  
+  # UI output giving the option that was clicked on
+  output$selected_row <- renderUI({
+    
+    selected_row <- as.numeric(input$table_click) + 1 #Row ids start from 0
+    req(selected_row)
+    
+    tags$h3(paste0("Edit Option: ", retainedData$all[selected_row, "Option"]))
+    
+  })
   
   ### Example table #1 ---------
   output$exampleTable1 <- renderReactable({
@@ -166,11 +191,11 @@ server <- function(input, output, session) {
     
     # Create dummy df with placeholders for the table
     table_data <- plot_data %>%
-      dplyr::select(Option, Notes, Ranking) %>%
-      mutate(s_plot = NA,
+      mutate(Edit = NA) %>%
+      mutate(Edit = NA,
+             s_plot = NA,
              c_plot = NA) %>%
-      relocate(Notes, .after = last_col()) %>%
-      relocate(Ranking, .after = last_col())
+      dplyr::select(Option, s_plot, c_plot, Notes, Ranking, Edit)
     
     #save(plot_data, table_data, file = "test_data.RData")
 
@@ -181,11 +206,17 @@ server <- function(input, output, session) {
       table_data,
       
       # Options
-      selection = "single", onClick = "select", highlight = F, compact = T, style = list(color = "#000000"),
+      # This JS function converts click actions into a reactive variable that shiny recognizes
+      onClick = JS("function(rowInfo, colInfo) {
+    // Send the click event to Shiny
+    if (window.Shiny) {
+      Shiny.setInputValue('table_click', rowInfo.id)
+    }
+  }"),
+      highlight = F, compact = T, style = list(color = "#000000"),
       pagination = T, showPageSizeOptions = TRUE, paginationType = "simple", # pagination
-      sortable = FALSE, # So not all columns are sortable
-      showSortable = TRUE, # Allow some columns to be sortable
-      
+      sortable = FALSE, # Columns are not sortable by default
+
       # Cell contents
       columns = list(
         Option = colDef(align = "center", cell = function(value, index) {
@@ -202,7 +233,10 @@ server <- function(input, output, session) {
           p <- htmltools::plotTag(plot_data$c_plot[[index]], alt="plots", width = 70, height = 70)
           return(p)
         }),
-        Ranking = colDef(sortable = T, align = "center", cell = function(value) rating_stars(value))
+        Ranking = colDef(align = "center", cell = function(value) rating_stars(value)),
+        Edit = colDef(align = "center", cell = function(){
+          tags$div(id = "edit_button", icon("pen-to-square")) # Bill - CSS for this divider is in the main.css file
+        })
       ),
       
       # Vertically center align cell contents
@@ -376,7 +410,7 @@ server <- function(input, output, session) {
   #Test report
   #-------------------
   
-  # ### NOTE - This isn't currently working - The table isn't visable for some reason when doing rmarkdown::render(), but it works if you manually knit the file. 
+  # ### NOTE - Bill, this isn't currently working - The table isn't visable for some reason when doing rmarkdown::render(), but it works if you manually knit the file. 
   # 
   # #Download report
   # output$testReport <- downloadHandler(

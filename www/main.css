@@ -1,4 +1,23 @@
 
+ /*Custom div - fake edit button*/
+ #edit_button {
+   display: inline-block; 
+   padding: 0.125rem 0.75rem; 
+   font-weight: 400; 
+   font-size: 0.75rem; 
+   border: 2px solid #005387; 
+   border-radius: 15px; 
+   color: #ffffff;
+   background: #005387; 
+   width: 40px; 
+   height: 25px;
+ }
+ 
+ /*Custom div - fake edit button - hover properties*/
+#edit_button:hover {
+   background: #0096D6; 
+ }
+
 
  /*DT selected row color*/
  table.dataTable tr.selected td, table.dataTable td.selected {

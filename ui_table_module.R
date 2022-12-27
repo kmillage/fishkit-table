@@ -1,6 +1,99 @@
 
+# Move to own functions file
+
+rating_stars <- function(rating, max_rating = 5) {
+  star_icon <- function(empty = FALSE) {
+    tagAppendAttributes(shiny::icon("star"),
+                        style = paste("color:", if (empty) grey_color else "orange"),
+                        "aria-hidden" = "true"
+    )
+  }
+  rounded_rating <- floor(rating + 0.5)  # always round up
+  stars <- lapply(seq_len(max_rating), function(i) {
+    if (i <= rounded_rating) star_icon() else star_icon(empty = TRUE)
+  })
+  label <- sprintf("%s out of %s stars", rating, max_rating)
+  div(title = label, role = "img", stars)
+}
+
+grey_color <- "#EEEEEE"
+orange_color <- "#E88727"
+
+
 interactiveTable <- function(){
   fluidPage(
+    
+    # Modal for facilitator inputs
+    bsModal("inputModal", title = "", trigger = "table_click", size = "large",
+            tagList(
+              # Reactive title
+              uiOutput("selected_row"),
+              
+              tags$br(),
+              
+              # Widgets
+              fluidRow(
+                column(8,
+                       # Notes to add to selected row
+                       textInput("Notes",
+                                 label = NULL,
+                                 value = "",
+                                 placeholder = "Input notes here",
+                                 width = "100%")
+                ),
+                column(4,
+                       
+                       pickerInput("Ranking",
+                                   label = NULL,
+                                   choices = c(1,2,3,4,5),
+                                   choicesOpt = list(
+                                     content = c(paste(rating_stars(1)),
+                                                 paste(rating_stars(2)),
+                                                 paste(rating_stars(3)),
+                                                 paste(rating_stars(4)),
+                                                 paste(rating_stars(5)))
+                                     )
+                       )
+                )
+              ),
+              fluidRow(
+                column(2, offset = 6,
+                       actionBttn(
+                         "addNotes",
+                         strong("Add notes"),
+                         size = "sm",
+                         block = TRUE,
+                         color = "warning",
+                         style = "gradient"
+                       )
+                ),
+                column(2, offset = 2,
+                       actionBttn(
+                         "addRanking",
+                         strong("Add ranking"),
+                         size = "sm",
+                         block = TRUE,
+                         color = "warning",
+                         style = "gradient"
+                       )
+                )
+              ),
+              tags$hr(),
+              fluidRow(
+                column(2, offset = 10,
+                       # Delete selected row button
+                       actionBttn(
+                         "deleteRow",
+                         strong("Delete"),
+                         size = "sm",
+                         block = TRUE,
+                         color = "default",
+                         style = "gradient"
+                       )
+                )
+              )
+            )
+    ),
     
     tags$h3("Examples of interactive tables for retaining user-defined scenarios"),
     tags$br(),
@@ -48,59 +141,7 @@ interactiveTable <- function(){
             
             # Table
             reactableOutput("exampleTable1"),
-            tags$br(),
-            
-            fluidRow(
-              column(3, offset = 7,
-                     # Notes to add to selected row
-                     textInput("Notes",
-                               label = NULL,
-                               value = "",
-                               placeholder = "Input notes here")
-              ),
-              column(2,
-                     # Ranking to add to selected row
-                     numericInput("Ranking",
-                                  label = NULL,
-                                  value = 1,
-                                  min = 0,
-                                  max = 5,
-                                  step = 1)
-              )
-            ),
-            fluidRow(
-              column(7, 
-                     # Delete selected row button
-                     actionBttn(
-                       "deleteRow",
-                       strong("Delete selected row:"),
-                       size = "sm",
-                       block = TRUE,
-                       color = "warning",
-                       style = "gradient"
-                     )
-              ),
-              column(3,
-                     actionBttn(
-                       "addNotes",
-                       strong("Add notes to selected row:"),
-                       size = "sm",
-                       block = TRUE,
-                       color = "warning",
-                       style = "gradient"
-                     )
-              ),
-              column(2,
-                     actionBttn(
-                       "addRanking",
-                       strong("Add rank to selected row:"),
-                       size = "sm",
-                       block = TRUE,
-                       color = "warning",
-                       style = "gradient"
-                     )
-              )
-            )
+            tags$br()
           )
         ),
         
