@@ -138,6 +138,7 @@ server <- function(input, output, session) {
       highlight = F, compact = T, style = list(color = "#000000"),
       pagination = T, showPageSizeOptions = TRUE, paginationType = "simple", # pagination
       sortable = FALSE, # Columns are not sortable by default
+      showSortable = T, # Allow specified columns (Ranking) to be sortable
 
       # Cell contents
       columns = list(
@@ -155,7 +156,7 @@ server <- function(input, output, session) {
           p <- htmltools::plotTag(plot_data$c_plot[[index]], alt="plots", width = 70, height = 70)
           return(p)
         }),
-        Ranking = colDef(align = "center", cell = function(value) rating_stars(value)),
+        Ranking = colDef(align = "center", sortable = T, cell = function(value) rating_stars(value)),
         Edit = colDef(align = "center", cell = function(){
           tags$div(id = "edit_button", icon("pen-to-square")) # Bill - CSS for this divider is in the main.css file
         })
