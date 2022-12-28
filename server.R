@@ -156,9 +156,9 @@ server <- function(input, output, session) {
           p <- htmltools::plotTag(plot_data$c_plot[[index]], alt="plots", width = 70, height = 70)
           return(p)
         }),
-        Ranking = colDef(align = "center", sortable = T, cell = function(value) rating_stars(value)),
+        Ranking = colDef(align = "center", sortable = T, cell = function(value) rating_stars(value)), # Bill - If you decide to do away with the sorting, delete the 'sortable = T' call here. 
         Edit = colDef(align = "center", cell = function(){
-          tags$div(id = "edit_button", icon("pen-to-square")) # Bill - CSS for this divider is in the main.css file
+          tags$div(id = "edit_button", icon("pen-to-square")) # Bill - CSS for this "button" is in the main.css file
         })
       ),
       

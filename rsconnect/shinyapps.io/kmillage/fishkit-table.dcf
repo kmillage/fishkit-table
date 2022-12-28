@@ -5,9 +5,9 @@ account: kmillage
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 7907588
-bundleId: 6679247
+bundleId: 6679311
 url: https://kmillage.shinyapps.io/fishkit-table/
-when: 1672253865.76128
-lastSyncTime: 1672253865.7613
+when: 1672255740.30973
+lastSyncTime: 1672255740.30974
 asMultiple: FALSE
 asStatic: FALSE
