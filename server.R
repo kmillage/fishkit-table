@@ -1,5 +1,7 @@
 
+### ----------------------------------------------------------------------------
 ### Server --------
+### ----------------------------------------------------------------------------
 
 server <- function(input, output, session) {
   
@@ -8,7 +10,7 @@ server <- function(input, output, session) {
   retainedData <- reactiveValues(all = NULL,
                                  selected_row = NULL)
   
-  ### Add a randomly drawn entry to the retained data object when the "Retain option:" button is pressed
+  ### Add a randomly drawn entry to the retained data object 
   observeEvent(input$addRow, {
     
       # Randomly draw a row from our fake dataset to simulate user selected options
@@ -28,30 +30,50 @@ server <- function(input, output, session) {
     
   }, ignoreInit = T)
   
+  ##### EXAMPLE 1 --------------------------------------------------------------
+  
   ### Open modal when user has clicked on a row in the table
   observeEvent(input$table_click, {
     
-    # Save value
+    # Identify selected row
     retainedData$selected_row <- as.numeric(input$table_click) + 1 #JS row ids start from 0
+    req(retainedData$selected_row)
+    
+    # Update widget starting values to reflect what's currently in the table
+    updateTextInput(session, inputId = "Notes",
+                    value = retainedData$all[retainedData$selected_row, ]$Notes)
+
+    updatePickerInput(session, inputId = "Ranking",
+                      selected = retainedData$all[retainedData$selected_row, ]$Ranking)
     
     # Open modal
     toggleModal(session, "input_modal", toggle = "open")
     
   })
   
-  ### Reset selected row value when modal is closed
-  observeEvent(input$close_modal, {
+  ### Save notes and ranking value upon saving and close modal
+  observeEvent(input$save, {
     
-    # Reset value 
-    retainedData$selected_row <- NULL
+    # Get selected row
+    selected_row <- retainedData$selected_row
+    req(selected_row)
+    
+    # Add custom input notes
+    retainedData$all[selected_row, ]$Notes <- input$Notes
+    
+    # Add rating
+    retainedData$all[selected_row, ]$Ranking <- as.numeric(input$Ranking)
     
     # Close modal
     toggleModal(session, "input_modal", toggle = "close")
+
+    # Reset selected row counter 
+    retainedData$selected_row <- NULL
     
   })
   
   ### Delete selected row from retained options and close modal
-  observeEvent(input$deleteRow, {
+  observeEvent(input$delete_row, {
       
       # Get selected row
       selected_row <- retainedData$selected_row
@@ -59,42 +81,17 @@ server <- function(input, output, session) {
       
       # Remove row from species data 
       retainedData$all <- isolate(retainedData$all)[-selected_row,]
-      
-      # Reset selected row value 
-      retainedData$selected_row <- NULL
-      
+
       # Close modal
       toggleModal(session, "input_modal", toggle = "close")
+      
+      # Reset selected row value
+      retainedData$selected_row <- NULL
 
-  }, ignoreInit = T)
-  
-  ### Add notes to the selected row
-  observeEvent(input$addNotes, {
-    
-    # Get selected row
-    selected_row <- retainedData$selected_row
-    req(selected_row)
-    
-    # Add custom input notes
-    retainedData$all[selected_row, "Notes"] <- input$Notes
-    
-  }, ignoreInit = T)
-  
-  ### Add ranking to the selected row
-  observeEvent(input$addRanking, {
-    
-    # Define selected row
-    selected_row <- retainedData$selected_row
-    req(selected_row)
-    
-    # Add ranking
-    retainedData$all[selected_row, "Ranking"] <- as.numeric(input$Ranking)
-    
-  }, ignoreInit = T)
-  
+  })
   
   ### UI output for the modal windown telling the user which option is being edited
-  output$selected_row <- renderUI({
+  output$modal_title <- renderUI({
     
     selected_row <- retainedData$selected_row
     req(selected_row)
@@ -102,11 +99,17 @@ server <- function(input, output, session) {
     tags$h3(paste0("Edit Option: ", retainedData$all[selected_row, "Option"]))
     
   })
-  
+    
   ### Example table #1 ---------
   output$exampleTable1 <- renderReactable({
     
     req(!is.null(retainedData$all))
+    
+    # This is the sample data I saved to play around with the test report
+    if(nrow(retainedData$all) == 5){
+      retained_options <- retainedData$all
+      save(retained_options, file = "markdown/retained_options.RData")
+    }
     
     # Make donut charts
     plot_data <- retainedData$all %>%
@@ -115,14 +118,11 @@ server <- function(input, output, session) {
     
     # Create dummy df with placeholders for the table
     table_data <- plot_data %>%
-      mutate(Edit = NA) %>%
       mutate(Edit = NA,
              s_plot = NA,
              c_plot = NA) %>%
       dplyr::select(Option, s_plot, c_plot, Notes, Ranking, Edit)
     
-    #save(plot_data, table_data, file = "test_data.RData")
-
     req(nrow(table_data) > 0)
     
     # Make table
@@ -132,6 +132,10 @@ server <- function(input, output, session) {
       # Options
       # This JS function converts click actions into a reactive variable that shiny recognizes
       onClick = JS("function(rowInfo, colInfo) {
+    // Only handle click events on the 'Edit' column
+    if (colInfo.id !== 'Edit') {
+      return
+    }
     // Send the click event to Shiny
     if (window.Shiny) {
       Shiny.setInputValue('table_click', rowInfo.id, {priority: 'event'})
@@ -143,7 +147,7 @@ server <- function(input, output, session) {
 
       # Cell contents
       columns = list(
-        Option = colDef(align = "center", cell = function(value, index) {
+        Option = colDef(align = "left", cell = function(value, index) {
           size_range_chart(label = value, 
                            slot_limit = plot_data$slot_limit[[index]], 
                            min_size = plot_data$min_size[[index]], 
@@ -169,7 +173,8 @@ server <- function(input, output, session) {
     
   })
   
-  ### Example table #2 ---------
+  ##### Example table #2 -------------------------------------------------------
+  
   output$exampleTable2 <- renderReactable({
     
     req(!is.null(retainedData$all))
@@ -206,7 +211,8 @@ server <- function(input, output, session) {
     
   })
   
-  ### Example table #3 ---------
+  ##### Example table #3 -------------------------------------------------------
+  
   output$exampleTable3 <- renderReactable({
 
     req(!is.null(retainedData$all))
@@ -250,7 +256,8 @@ server <- function(input, output, session) {
 
   })
   
-  ### Example table #4 ---------
+  ##### Example table #4 -------------------------------------------------------
+  
   output$exampleTable4 <- renderReactable({
     
     req(!is.null(retainedData$all))
@@ -291,7 +298,8 @@ server <- function(input, output, session) {
     
   })
   
-  ### Example table #5 ---------
+  ##### Example table #5 -------------------------------------------------------
+  
   output$exampleTable5 <- renderReactable({
     
     req(!is.null(retainedData$all))
@@ -330,9 +338,7 @@ server <- function(input, output, session) {
     
   })
   
-  #-------------------
-  #Test report
-  #-------------------
+  ##### Test report ------------------------------------------------------------
   
   # ### NOTE - Bill, this isn't currently working - The table isn't visable for some reason when doing rmarkdown::render(), but it works if you manually knit the file. 
   # 
@@ -358,7 +364,7 @@ server <- function(input, output, session) {
   #     rmarkdown::render(tempReport, 
   #                       output_file = file,
   #                       params = list(
-  #                         dat = tempFile
+  #                         dat_path = tempFile
   #                       ),
   #                       envir = new.env(parent = globalenv())
   #     )

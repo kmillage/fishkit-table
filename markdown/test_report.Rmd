@@ -7,7 +7,7 @@ output:
 geometry: left=3cm,right=3cm,top=2cm,bottom=2cm
 always_allow_html: yes
 params:
-  dat: retained_options.Rdata
+  dat_path: "retained_options.Rdata"
 ---
 
 ```{r, echo=FALSE, message=F, warning=F}
@@ -15,43 +15,55 @@ library(reactable)
 library(reactR)
 library(htmltools)
 library(htmlwidgets)
-library(webshot)
+library(webshot2)
 library(tidyverse)
 library(shiny)
 
-# Load test data
-load("test_data.Rdata")
-retained_options <- table_data
-
-# # Load the retained options file that was saved to the temp directory - this is from my attempts to link it to the demo app.
-# load(params$dat)
+# Load data - From the app, I was having it save the file to the temp directory and then use that path to load it here. You might be able to find a better way though
+load(params$dat)
 
 runReport <- (NROW(retained_options) > 0)
 ```
 
 
 ```{r, echo=FALSE}
+# Bill - you might be able to do away with these in the report if you generated the objects before export and saved them within the reactive values object (e.g., plot_data as we did with the ggplots). I hadn't set it up that way before because i was using the same object for all of the different example tables though. 
 if(runReport){
-  # Plotting helpers
+  
   # Colors
   s_color <- "#005387"
   c_color <- "#0096D6"
   grey_color <- "#EEEEEE"
+  orange_color <- "#E88727"
   
-# Render a donut chart with a label in the middle
-donut_theme <- theme_void()+
-  theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    panel.border = element_blank(),
-    panel.background = element_rect(color = NA, fill = NA),
-    panel.grid=element_blank(),
-    axis.ticks = element_blank(),
-    plot.title=element_blank(),
-    axis.text = element_blank(),
-    legend.position = "none"
-  )
-
+  # Render a bar chart showing the size range (as a function of the species' Lmax) that can be harvested 
+  size_range_chart <- function(label, height = "0.5rem", fill = orange_color, background = grey_color, slot_limit = "N",
+                               min_size = 50, max_size = 100, Lmin = 0, Lmax = 100) {
+  
+  if(slot_limit == "N"){
+    
+    percent_out <- ((min_size)/(Lmax-Lmin))*100
+    out_bar <- div(style = list(background = background, width = paste0(round(percent_out, 2), "%"), height = height))
+    bar <- div(style = list(flexGrow = 1, background = fill), out_bar)
+    tagList(tags$p(label),
+            bar)
+    
+  }else if(slot_limit == "Y"){
+    
+    percent_low <- ((min_size)/(Lmax-Lmin))*100
+    percent_high <- ((Lmax-max_size)/(Lmax-Lmin))*100
+    percent_in <- 100-(percent_low+percent_high)
+    out_bar_low <- div(style = list(background = background, width = paste0(round(percent_low, 2), "%"), height = height, float = "left"))
+    in_bar <- div(style = list(background = fill, width = paste0(round(percent_in, 2), "%"), height = height, float = "left"))
+    out_bar_high <- div(style = list(background = background, width = paste0(round(percent_high, 2), "%"), height = height, float = "left"))
+    bar <- div(style = list(flexGrow = 1, background = fill), out_bar_low, in_bar, out_bar_high)
+    tagList(tags$p(label),
+            bar)
+    
+  }
+  }
+  
+  # Donut chart with a label in the middle
 donut_chart <- function(value, fill = s_color, background = grey_color) {
   
   d <- tibble(category = c("value", "extra"),
@@ -70,6 +82,21 @@ donut_chart <- function(value, fill = s_color, background = grey_color) {
   return(p)
 }
 
+# Theme for donut chart
+donut_theme <- theme_void()+
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_rect(color = NA_character_, fill = "transparent"),
+    plot.background = element_rect(color = NA_character_, fill = "transparent"),
+    panel.grid=element_blank(),
+    axis.ticks = element_blank(),
+    plot.title=element_blank(),
+    axis.text = element_blank(),
+    legend.position = "none"
+  )
+  
   # Star making function
   rating_stars <- function(rating, max_rating = 5) {
     star_icon <- function(empty = FALSE) {
@@ -103,28 +130,26 @@ donut_chart <- function(value, fill = s_color, background = grey_color) {
 ```{r, echo=F}
 if(runReport){
   
-  # Make plots
+  # Make donut charts
     plot_data <- retained_options %>%
       mutate(s_plot = map(sustainability_score, donut_chart),
              c_plot = map(catch_score, donut_chart, fill = c_color))
-    
+  
   # Create dummy df with placeholders for the table
     table_data <- plot_data %>%
-      dplyr::select(Option, Notes, Ranking) %>%
       mutate(s_plot = NA,
              c_plot = NA) %>%
-      relocate(Notes, .after = last_col()) %>%
-      relocate(Ranking, .after = last_col())
+      dplyr::select(Option, s_plot, c_plot, Notes, Ranking)
 }
 ```
 
+## Reactable output
 
-```{r plot, echo=FALSE, results='asis'}
-#if(runReport){
+```{r plot, echo=FALSE}
+if(runReport){
 
  # Make table
-htmltools::tagList(
-  reactable::reactable(
+b <- reactable::reactable(
       table_data,
 
       # Options
@@ -137,6 +162,12 @@ htmltools::tagList(
 
       # Cell contents
       columns = list(
+        Option = colDef(align = "left", cell = function(value, index) {
+          size_range_chart(label = value, 
+                           slot_limit = plot_data$slot_limit[[index]], 
+                           min_size = plot_data$min_size[[index]], 
+                           max_size = plot_data$max_size[[index]])
+        }),
         s_plot = colDef(name = "Sustainability Score", align = "center", cell = function(value, index) {
           p <- htmltools::plotTag(plot_data$s_plot[[index]], alt="plots", width = 90, height = 90)
           return(p)
@@ -151,6 +182,26 @@ htmltools::tagList(
       # Vertically center align cell contents
       defaultColDef = colDef(vAlign = "center", headerVAlign = "center")
     )
-)
-#}
+
+b
+
+# htmltools::tagList(
+#   b
+# )
+
+}
 ```
+
+## Webshot output
+
+```{r, echo=FALSE}
+# This was another potential option I came across, but it's not working super well for me because of some issue with font-aweomse
+if(runReport){
+  
+html <- "table.html"
+saveWidget(b, html)
+webshot::webshot(html, "table.png")
+
+}
+```
+

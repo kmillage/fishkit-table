@@ -23,7 +23,7 @@ size_range_chart <- function(label, height = "0.5rem", fill = orange_color, back
     
     percent_out <- ((min_size)/(Lmax-Lmin))*100
     out_bar <- div(style = list(background = background, width = paste0(round(percent_out, 2), "%"), height = height))
-    bar <- div(style = list(flexGrow = 1, marginLeft = "0.5rem", background = fill), out_bar)
+    bar <- div(style = list(flexGrow = 1, background = fill), out_bar)
     tagList(tags$p(label),
             bar)
     
@@ -35,7 +35,7 @@ size_range_chart <- function(label, height = "0.5rem", fill = orange_color, back
     out_bar_low <- div(style = list(background = background, width = paste0(round(percent_low, 2), "%"), height = height, float = "left"))
     in_bar <- div(style = list(background = fill, width = paste0(round(percent_in, 2), "%"), height = height, float = "left"))
     out_bar_high <- div(style = list(background = background, width = paste0(round(percent_high, 2), "%"), height = height, float = "left"))
-    bar <- div(style = list(flexGrow = 1, marginLeft = "0.5rem", background = fill), out_bar_low, in_bar, out_bar_high)
+    bar <- div(style = list(flexGrow = 1, background = fill), out_bar_low, in_bar, out_bar_high)
     tagList(tags$p(label),
             bar)
     
@@ -84,9 +84,8 @@ rating_stars <- function(rating, max_rating = 5) {
                         "aria-hidden" = "true"
     )
   }
-  rounded_rating <- floor(rating + 0.5)  # always round up
   stars <- lapply(seq_len(max_rating), function(i) {
-    if (i <= rounded_rating) star_icon() else star_icon(empty = TRUE)
+    if (i <= rating) star_icon() else star_icon(empty = TRUE)
   })
   label <- sprintf("%s out of %s stars", rating, max_rating)
   div(title = label, role = "img", stars)
@@ -115,8 +114,9 @@ interactiveTable <- function(){
     # Modal for facilitator inputs
     bsModal("input_modal", title = "", trigger = "table_click", size = "large",
             tagList(
+              
               # Reactive title
-              uiOutput("selected_row"),
+              uiOutput("modal_title"),
               
               tags$br(),
               
@@ -125,71 +125,49 @@ interactiveTable <- function(){
                 column(8,
                        # Notes to add to selected row
                        textInput("Notes",
-                                 label = NULL,
-                                 value = "",
+                                 label = strong("Notes"),
+                                 value = NULL,
                                  placeholder = "Input notes here",
                                  width = "100%")
                 ),
                 column(4,
-                       
                        pickerInput("Ranking",
-                                   label = NULL,
-                                   choices = c(1,2,3,4,5),
+                                   label = strong("Ranking"),
+                                   choices = c(0,1,2,3,4,5),
+                                   selected = 0,
                                    choicesOpt = list(
-                                     content = c(paste(rating_stars(1)),
+                                     content = c(paste(rating_stars(0)),
+                                                 paste(rating_stars(1)),
                                                  paste(rating_stars(2)),
                                                  paste(rating_stars(3)),
                                                  paste(rating_stars(4)),
-                                                 paste(rating_stars(5)))
-                                     )
-                       )
-                )
-              ),
-              fluidRow(
-                column(2, offset = 6,
-                       actionBttn(
-                         "addNotes",
-                         strong("Add notes"),
-                         size = "sm",
-                         block = TRUE,
-                         color = "warning",
-                         style = "gradient"
-                       )
-                ),
-                column(2, offset = 2,
-                       actionBttn(
-                         "addRanking",
-                         strong("Add ranking"),
-                         size = "sm",
-                         block = TRUE,
-                         color = "warning",
-                         style = "gradient"
-                       )
-                )
-              ),
-              tags$hr(),
-              fluidRow(
-                column(2, offset = 10,
-                       # Delete selected row button
-                       actionBttn(
-                         "deleteRow",
-                         strong("Delete"),
-                         size = "sm",
-                         block = TRUE,
-                         color = "default",
-                         style = "gradient"
-                       )
+                                                 paste(rating_stars(5)))))
                 )
               )
             ),
-            # Add custom footer with different close button - This is perhaps uncessary, but I couldn't find another way to register that the user had closed the modal, which allows me to reset the selected row input. Without this, you can't click on the same row twice to edit it without first clicking on another row
+            # Add custom footer with different close button - Bill - This might be unnecessary if you end up using a different type of modal where you can tell it to not show the close button. I couldn't remember which type of modals you prefer to use. 
             tags$head(tags$style("#input_modal .modal-footer{ display:none}")), # hide standard footer
             
             tags$hr(),
             
-            # Now add our own button with an id that we can call on the server side
-            column(2, offset = 10, align = "right",
-                   actionBttn("close_modal", "Done")
+            fluidRow(
+              column(3, align = "left",
+                     actionBttn("delete_row",
+                                strong("Delete option"),
+                                size = "sm",
+                                block = TRUE,
+                                color = "default",
+                                style = "gradient")
+              ),
+              # Now add our own button with an id that we can call on the server side
+              column(3, offset = 6, align = "right",
+                     actionBttn("save", 
+                                strong("Save edits"),
+                                size = "sm",
+                                block = TRUE,
+                                color = "warning",
+                                style = "gradient")
+              )
             )
     ),
     
@@ -212,12 +190,9 @@ interactiveTable <- function(){
           )
         )
       ),
-      column(5,
+      column(8,
              "This button simulates adding data by randomly drawing from a file of possible outcomes"
       )
-      # column(2, offset = 1,
-      #        downloadButton("testReport", label = "Download Report", width = "100%")
-      # )
     ),
     # Interactive Table of retained size limits - Option #1
     fluidRow(
