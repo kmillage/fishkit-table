@@ -105,12 +105,6 @@ server <- function(input, output, session) {
     
     req(!is.null(retainedData$all))
     
-    # This is the sample data I saved to play around with the test report
-    if(nrow(retainedData$all) == 5){
-      retained_options <- retainedData$all
-      save(retained_options, file = "markdown/retained_options.RData")
-    }
-    
     # Make donut charts
     plot_data <- retainedData$all %>%
       mutate(s_plot = map(sustainability_score, donut_chart),
